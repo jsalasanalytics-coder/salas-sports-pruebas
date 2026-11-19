@@ -1,0 +1,49 @@
+name: Instalador real en Windows
+# Instala el instalador de verdad en una Windows limpia, abre la app, espera que prepare sola el motor de IA
+# (sin tocar nada) y hace trackings reales con lo que quedó instalado. El instalador y el video viajan cifrados.
+on: workflow_dispatch
+env: { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }
+jobs:
+  win:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: { os: [windows-2022, windows-2025] }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Paquete de prueba
+        shell: bash
+        env: { GH_TOKEN: '${{ github.token }}', CLAVE: '${{ secrets.PRUEBA_CLAVE }}' }
+        run: |
+          gh release download paquete -p 'win.enc' -p 'datos.enc' -D p
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in p/win.enc -out setup.exe
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in p/datos.enc -out clip.mp4
+          rm -rf p; ls -la setup.exe clip.mp4
+      - name: Instalar y abrir la app
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Start-Process .\setup.exe -ArgumentList '/S' -Wait
+          $app="$env:LOCALAPPDATA\Programs\Salas Sports\Salas Sports.exe"
+          if(!(Test-Path $app)){ throw 'el instalador no dejó la app' }
+          "instalada: $((Get-Item $app).VersionInfo.ProductVersion)"
+          Start-Process $app
+          $e="$env:APPDATA\boca-va\vision-engine"; $t=Get-Date
+          for($i=0;$i -lt 120;$i++){ if(Test-Path "$e\engine.json"){break}; Start-Sleep 3 }
+          "motor preparado solo: $(Test-Path "$e\engine.json") a los $([int]((Get-Date)-$t).TotalSeconds) s de abrir la app"
+          "procesos de la app: $(@(Get-Process 'Salas Sports' -ErrorAction SilentlyContinue).Count)"
+          if(Test-Path "$e\install.log"){ Get-Content "$e\install.log" -Encoding utf8 | Select-Object -Last 25 }
+          Get-Process 'Salas Sports' -ErrorAction SilentlyContinue | Stop-Process -Force
+          if(!(Test-Path "$e\engine.json")){ throw 'la app no preparó el motor' }
+      - name: Tracking real con lo instalado
+        shell: bash
+        run: |
+          R="$LOCALAPPDATA/Programs/Salas Sports/resources/app.asar.unpacked/assets"
+          python ci/run_tests.py "$APPDATA/boca-va/vision-engine" "$R/vision" "$R/bin/ffmpeg.exe" clip.mp4 "informe-${{ matrix.os }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: 'informe-${{ matrix.os }}', path: 'informe-*.json' }
