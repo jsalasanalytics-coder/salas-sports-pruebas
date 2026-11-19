@@ -1,0 +1,48 @@
+name: Instalador real en Mac
+# Abre el .dmg de verdad en una Mac limpia, copia la app, la abre, espera que prepare sola el motor de IA
+# y hace trackings reales con lo que quedó instalado. El instalador y el video viajan cifrados.
+on: workflow_dispatch
+env: { PYTHONUTF8: '1' }
+jobs:
+  mac:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, pkg: mac-arm64.enc }
+          - { os: macos-26, pkg: mac-arm64.enc }
+          - { os: macos-15-intel, pkg: mac-x64.enc }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Paquete de prueba
+        env: { GH_TOKEN: '${{ github.token }}', CLAVE: '${{ secrets.PRUEBA_CLAVE }}' }
+        run: |
+          gh release download paquete -p '${{ matrix.pkg }}' -p 'datos.enc' -D p
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in 'p/${{ matrix.pkg }}' -out app.dmg
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in p/datos.enc -out clip.mp4
+          rm -rf p
+      - name: Instalar y abrir la app
+        run: |
+          sw_vers; uname -m
+          hdiutil attach app.dmg -nobrowse -mountpoint /Volumes/salas >/dev/null
+          cp -R "/Volumes/salas/Salas Sports.app" /Applications/ && hdiutil detach /Volumes/salas >/dev/null
+          E="$HOME/Library/Application Support/boca-va/vision-engine"
+          open "/Applications/Salas Sports.app"; T=$(date +%s)
+          for i in $(seq 1 120); do [ -f "$E/engine.json" ] && break; sleep 3; done
+          echo "motor preparado solo: $([ -f "$E/engine.json" ] && echo SI || echo NO) a los $(( $(date +%s) - T )) s de abrir la app"
+          echo "procesos de la app: $(pgrep -f 'Salas Sports' | wc -l)"
+          [ -f "$E/install.log" ] && tail -25 "$E/install.log" || true
+          pkill -f "Salas Sports" || true
+          [ -f "$E/engine.json" ]
+      - name: Tracking real con lo instalado
+        run: |
+          R="/Applications/Salas Sports.app/Contents/Resources/app.asar.unpacked/assets"
+          python ci/run_tests.py "$HOME/Library/Application Support/boca-va/vision-engine" "$R/vision" "$R/bin/ffmpeg_macos" clip.mp4 "informe-${{ matrix.os }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: 'informe-${{ matrix.os }}', path: 'informe-*.json' }
