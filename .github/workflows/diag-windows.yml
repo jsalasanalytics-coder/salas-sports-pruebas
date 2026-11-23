@@ -1,0 +1,21 @@
+name: Diagnostico Windows
+on: workflow_dispatch
+jobs:
+  win:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Datos de la compu (lo que la app guarda en install.log)
+        shell: pwsh
+        run: powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ci/diag.ps1
+      - name: Bajar yt-dlp.exe
+        shell: pwsh
+        run: Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile yt-dlp.exe; .\yt-dlp.exe --version
+      - name: Titulo con ñ - como antes
+        run: node ci/test_dl.js yt-dlp.exe dl-antes https://www.youtube.com/watch?v=lMEy1OmOvzE antes
+      - name: Titulo con ñ - como ahora
+        run: node ci/test_dl.js yt-dlp.exe dl-ahora https://www.youtube.com/watch?v=lMEy1OmOvzE nuevo
