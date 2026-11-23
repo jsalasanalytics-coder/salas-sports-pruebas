@@ -1,0 +1,33 @@
+name: App en Windows (descargas)
+# Corre el código real de la app (cifrado) en Windows limpio y prueba descargas de punta a punta.
+on: workflow_dispatch
+jobs:
+  win:
+    strategy:
+      fail-fast: false
+      matrix: { os: [windows-2022, windows-2025] }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Código de la app
+        shell: bash
+        env: { GH_TOKEN: '${{ github.token }}', CLAVE: '${{ secrets.PRUEBA_CLAVE }}' }
+        run: |
+          gh release download paquete -p 'app.enc' -D p
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in p/app.enc -out app.tgz
+          tar xzf app.tgz && rm -rf p app.tgz
+          cd app && npm ci --ignore-scripts --no-audit --no-fund > /dev/null && node node_modules/electron/install.js && ls node_modules/electron/dist | head -3
+      - name: Descargas desde la app
+        shell: bash
+        run: |
+          (cd ci/web && python -m http.server 8765 > /dev/null 2>&1 &)
+          sleep 2
+          U="$RUNNER_TEMP/ud"; D="$RUNNER_TEMP/Descargas Peña"; mkdir -p "$U/accounts/_sin-sesion/data" "$D"
+          python -c "import json,sys; json.dump({'exportDir': sys.argv[1]}, open(sys.argv[2], 'w'))" "$D" "$U/accounts/_sin-sesion/data/config.json"
+          cd app
+          VA_SMOKE=1 VA_USERDATA="$U" VA_SMOKE_EXTRA="$GITHUB_WORKSPACE/ci/extra-win.js" npx electron . 2>&1 | grep -E "SMOKE\] (extra|home|descargas)|Error" || true
+          echo "--- archivos bajados:"; ls -la "$D/VA-descargas" || true
+          echo "--- descargador:"; ls -la "$U/bin" || true
