@@ -3,7 +3,7 @@ const { spawn } = require('child_process'), fs = require('fs'), path = require('
 const [ytdlp, dir, url, mode] = process.argv.slice(2);
 fs.mkdirSync(dir, { recursive: true });
 const nuevo = mode === 'nuevo';
-const args = ['--no-playlist', '--no-update', ...(nuevo ? ['--encoding', 'utf-8'] : []), '-f', 'b[ext=mp4]/b', '--newline', '--progress', '--no-simulate', '--print', 'after_move:filepath', '-o', path.join(dir, '%(title).100s [%(id)s].%(ext)s'), url];
+const args = ['--no-playlist', '--no-update', ...(nuevo ? ['--encoding', 'utf-8'] : []), '-f', 'b[ext=mp4]/b', '--newline', '--progress', '--no-simulate', '--print', 'after_move:filepath', '-o', path.join(dir, (process.argv[6] || '%(title).100s') + ' [%(id)s].%(ext)s'), url];
 const ps = spawn(ytdlp, args, { windowsHide: true, env: Object.assign({}, process.env, nuevo ? { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' } : {}) });
 let out = '', err = '';
 if (nuevo) { ps.stdout.setEncoding('utf8'); ps.stderr.setEncoding('utf8'); }

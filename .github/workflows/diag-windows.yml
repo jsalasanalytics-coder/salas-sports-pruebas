@@ -15,7 +15,7 @@ jobs:
       - name: Bajar yt-dlp.exe
         shell: pwsh
         run: Invoke-WebRequest https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile yt-dlp.exe; .\yt-dlp.exe --version
-      - name: Titulo con ñ - como antes
-        run: node ci/test_dl.js yt-dlp.exe dl-antes https://www.youtube.com/watch?v=lMEy1OmOvzE antes
-      - name: Titulo con ñ - como ahora
-        run: node ci/test_dl.js yt-dlp.exe dl-ahora https://www.youtube.com/watch?v=lMEy1OmOvzE nuevo
+      - name: Nombre con ñ y tildes - como antes
+        run: node ci/test_dl.js yt-dlp.exe dl-antes https://raw.githubusercontent.com/jsalasanalytics-coder/salas-sports-pruebas/main/ci/prueba.mp4 antes "Atlético Peñarol Córdoba"
+      - name: Nombre con ñ y tildes - como ahora
+        run: node ci/test_dl.js yt-dlp.exe dl-ahora https://raw.githubusercontent.com/jsalasanalytics-coder/salas-sports-pruebas/main/ci/prueba.mp4 nuevo "Atlético Peñarol Córdoba"
