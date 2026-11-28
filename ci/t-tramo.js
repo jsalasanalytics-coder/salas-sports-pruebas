@@ -109,10 +109,11 @@
       const guardado = localStorage.getItem('va.bgjobs.pos'); localStorage.removeItem('va.bgjobs.pos'); BgJobs.place(BgJobs.root());
       BgJobs.start('smk-job', 'Prueba', () => {}); await sleep(120);
       const node = document.querySelector('[data-job="smk-job"]'), root = document.getElementById('bgjobs'), b0 = root.getBoundingClientRect();
-      mouse('mousedown', b0.left + 40, b0.top + 20, node); mouse('mousemove', b0.left - 200, b0.top - 150); mouse('mousemove', b0.left - 260, b0.top - 200); window.__cartelDiag = { estilo: [root.style.right, root.style.bottom], calc: [getComputedStyle(root).right, getComputedStyle(root).bottom, getComputedStyle(root).position], clase: root.className, rect: [Math.round(root.getBoundingClientRect().left), Math.round(root.getBoundingClientRect().top)] };
-      mouse('mouseup', b0.left - 260, b0.top - 200);
+      mouse('mousedown', b0.left + 40, b0.top + 20, node); mouse('mousemove', b0.left - 200, b0.top - 150); mouse('mousemove', b0.left - 260, b0.top - 200); await sleep(150);      // con «reducir movimiento» del sistema, el cambio de lugar entra un instante después
+      window.__cartelDiag = { estilo: [root.style.right, root.style.bottom], calc: [getComputedStyle(root).right, getComputedStyle(root).bottom, getComputedStyle(root).position], clase: root.className, rect: [Math.round(root.getBoundingClientRect().left), Math.round(root.getBoundingClientRect().top)] };
+      mouse('mouseup', b0.left - 260, b0.top - 200); await sleep(150);
       const b1 = root.getBoundingClientRect(), dx = Math.round(b1.left - b0.left), dy = Math.round(b1.top - b0.top), mov = dx <= -100 && dy <= -100 && b1.left >= 0 && b1.top >= 0 && b1.right <= innerWidth && b1.bottom <= innerHeight, rec = !!localStorage.getItem('va.bgjobs.pos');
-      node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); const b2 = root.getBoundingClientRect();
+      node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); await sleep(150); const b2 = root.getBoundingClientRect();
       out.cartel = { diag: window.__cartelDiag, ua: (navigator.userAgent.match(/Electron\/[\d.]+/) || [''])[0], nodos: document.querySelectorAll('#bgjobs').length, dx, dy, ventana: [innerWidth, innerHeight], antes: [Math.round(b0.left), Math.round(b0.top), Math.round(b0.width), Math.round(b0.height)], seMueve: mov, recuerda: rec, vuelve: Math.abs(b2.left - b0.left) < 2 && Math.abs(b2.top - b0.top) < 2 };
       if (guardado) localStorage.setItem('va.bgjobs.pos', guardado); else localStorage.removeItem('va.bgjobs.pos');
       BgJobs.remove('smk-job');
