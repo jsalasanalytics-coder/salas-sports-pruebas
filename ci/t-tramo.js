@@ -11,8 +11,8 @@
     Store.config.prepCuts = true; window.__PPTEST = true;
     const chk = await window.va.visionCheck(); out.motor = !!(chk && chk.ok);
     const vm = await window.va.mediaAnalyze(VIDEO); out.video = vm && { w: vm.width, h: vm.height, dur: +Number(vm.duration).toFixed(2) };
-    if (!out.motor || !vm || !vm.duration) { out.fatal = 'sin motor o sin video'; return 'TRAMO ' + JSON.stringify(out); }
-    const DUR = vm.duration;
+    if (!SOLO_CARTEL && (!out.motor || !vm || !vm.duration)) { out.fatal = 'sin motor o sin video'; return 'TRAMO ' + JSON.stringify(out); }
+    const DUR = vm ? vm.duration : 0;
     const live = (id) => { const f = PreTrack.find(id); return f && f.c; };
     const idle = async (id, max) => { const t = Date.now(); await sleep(1500); while (Date.now() - t < max) { if (!PreTrack.active(id)) { await sleep(1500); if (!PreTrack.active(id)) return true; } await sleep(1000); } return false; };
     const btn = async (title, n) => { for (let i = 0; i < n; i++) { const b = [...document.querySelectorAll('.adj-b')].find((x) => x.title === title); if (!b) throw new Error('falta el botón ' + title); b.click(); await sleep(70); } await sleep(250); };
@@ -109,10 +109,11 @@
       const guardado = localStorage.getItem('va.bgjobs.pos'); localStorage.removeItem('va.bgjobs.pos'); BgJobs.place(BgJobs.root());
       BgJobs.start('smk-job', 'Prueba', () => {}); await sleep(120);
       const node = document.querySelector('[data-job="smk-job"]'), root = document.getElementById('bgjobs'), b0 = root.getBoundingClientRect();
-      mouse('mousedown', b0.left + 40, b0.top + 20, node); mouse('mousemove', b0.left - 200, b0.top - 150); mouse('mousemove', b0.left - 260, b0.top - 200); mouse('mouseup', b0.left - 260, b0.top - 200);
+      mouse('mousedown', b0.left + 40, b0.top + 20, node); mouse('mousemove', b0.left - 200, b0.top - 150); mouse('mousemove', b0.left - 260, b0.top - 200); window.__cartelDiag = { estilo: [root.style.right, root.style.bottom], calc: [getComputedStyle(root).right, getComputedStyle(root).bottom, getComputedStyle(root).position], clase: root.className, rect: [Math.round(root.getBoundingClientRect().left), Math.round(root.getBoundingClientRect().top)] };
+      mouse('mouseup', b0.left - 260, b0.top - 200);
       const b1 = root.getBoundingClientRect(), dx = Math.round(b1.left - b0.left), dy = Math.round(b1.top - b0.top), mov = dx <= -100 && dy <= -100 && b1.left >= 0 && b1.top >= 0 && b1.right <= innerWidth && b1.bottom <= innerHeight, rec = !!localStorage.getItem('va.bgjobs.pos');
       node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); const b2 = root.getBoundingClientRect();
-      out.cartel = { dx, dy, ventana: [innerWidth, innerHeight], antes: [Math.round(b0.left), Math.round(b0.top), Math.round(b0.width), Math.round(b0.height)], seMueve: mov, recuerda: rec, vuelve: Math.abs(b2.left - b0.left) < 2 && Math.abs(b2.top - b0.top) < 2 };
+      out.cartel = { diag: window.__cartelDiag, ua: (navigator.userAgent.match(/Electron\/[\d.]+/) || [''])[0], nodos: document.querySelectorAll('#bgjobs').length, dx, dy, ventana: [innerWidth, innerHeight], antes: [Math.round(b0.left), Math.round(b0.top), Math.round(b0.width), Math.round(b0.height)], seMueve: mov, recuerda: rec, vuelve: Math.abs(b2.left - b0.left) < 2 && Math.abs(b2.top - b0.top) < 2 };
       if (guardado) localStorage.setItem('va.bgjobs.pos', guardado); else localStorage.removeItem('va.bgjobs.pos');
       BgJobs.remove('smk-job');
     } catch (err) { out.cartel = { error: String(err.message || err) }; }
