@@ -1,0 +1,93 @@
+name: Motor con el tracking nuevo
+# La batería de pruebas del motor (run_tests.py: trackings reales + estrés) con el motor que deja el instalador de verdad
+# y los archivos de tracking NUEVOS (cifrados), en Windows y Mac limpias.
+on: workflow_dispatch
+env: { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }
+jobs:
+  win:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: { os: [windows-2022, windows-2025] }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Paquete de prueba
+        shell: bash
+        env: { GH_TOKEN: '${{ github.token }}', CLAVE: '${{ secrets.PRUEBA_CLAVE }}' }
+        run: |
+          gh release download paquete -p 'win.enc' -p 'datos.enc' -p 'app-tramo.enc' -D p
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in p/win.enc -out setup.exe
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in p/datos.enc -out clip.mp4
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in p/app-tramo.enc -out app.tgz
+          tar xzf app.tgz && rm -rf p app.tgz; ls -la setup.exe clip.mp4 app/assets/vision | head -30
+      - name: Instalar y abrir la app
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          Start-Process .\setup.exe -ArgumentList '/S' -Wait
+          $app="$env:LOCALAPPDATA\Programs\Salas Sports\Salas Sports.exe"
+          if(!(Test-Path $app)){ throw 'el instalador no dejó la app' }
+          "instalada: $((Get-Item $app).VersionInfo.ProductVersion)"
+          Start-Process $app
+          $e="$env:APPDATA\boca-va\vision-engine"; $t=Get-Date
+          for($i=0;$i -lt 120;$i++){ if(Test-Path "$e\engine.json"){break}; Start-Sleep 3 }
+          "motor preparado solo: $(Test-Path "$e\engine.json") a los $([int]((Get-Date)-$t).TotalSeconds) s de abrir la app"
+          "procesos de la app: $(@(Get-Process 'Salas Sports' -ErrorAction SilentlyContinue).Count)"
+          if(Test-Path "$e\install.log"){ Get-Content "$e\install.log" -Encoding utf8 | Select-Object -Last 25 }
+          Get-Process 'Salas Sports' -ErrorAction SilentlyContinue | Stop-Process -Force
+          if(!(Test-Path "$e\engine.json")){ throw 'la app no preparó el motor' }
+      - name: Tracking real con lo instalado
+        shell: bash
+        run: |
+          R="$LOCALAPPDATA/Programs/Salas Sports/resources/app.asar.unpacked/assets"
+          python ci/run_tests.py "$APPDATA/boca-va/vision-engine" "app/assets/vision" "$R/bin/ffmpeg.exe" clip.mp4 "informe-${{ matrix.os }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: 'informe-${{ matrix.os }}', path: 'informe-*.json' }
+  mac:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, pkg: mac-arm64.enc }
+          - { os: macos-26, pkg: mac-arm64.enc }
+          - { os: macos-15-intel, pkg: mac-x64.enc }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Paquete de prueba
+        env: { GH_TOKEN: '${{ github.token }}', CLAVE: '${{ secrets.PRUEBA_CLAVE }}' }
+        run: |
+          gh release download paquete -p '${{ matrix.pkg }}' -p 'datos.enc' -p 'app-tramo.enc' -D p
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in 'p/${{ matrix.pkg }}' -out app.dmg
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in p/datos.enc -out clip.mp4
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -md sha256 -pass env:CLAVE -in p/app-tramo.enc -out app.tgz
+          tar xzf app.tgz && rm -rf p app.tgz
+      - name: Instalar y abrir la app
+        run: |
+          sw_vers; uname -m
+          hdiutil attach app.dmg -nobrowse -mountpoint /Volumes/salas >/dev/null
+          cp -R "/Volumes/salas/Salas Sports.app" /Applications/ && hdiutil detach /Volumes/salas >/dev/null
+          E="$HOME/Library/Application Support/boca-va/vision-engine"
+          open "/Applications/Salas Sports.app"; T=$(date +%s)
+          for i in $(seq 1 120); do [ -f "$E/engine.json" ] && break; sleep 3; done
+          echo "motor preparado solo: $([ -f "$E/engine.json" ] && echo SI || echo NO) a los $(( $(date +%s) - T )) s de abrir la app"
+          echo "procesos de la app: $(pgrep -f 'Salas Sports' | wc -l)"
+          [ -f "$E/install.log" ] && tail -25 "$E/install.log" || true
+          pkill -f "Salas Sports" || true
+          [ -f "$E/engine.json" ]
+      - name: Tracking real con lo instalado
+        run: |
+          R="/Applications/Salas Sports.app/Contents/Resources/app.asar.unpacked/assets"
+          python ci/run_tests.py "$HOME/Library/Application Support/boca-va/vision-engine" "app/assets/vision" "$R/bin/ffmpeg_macos" clip.mp4 "informe-${{ matrix.os }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: 'informe-${{ matrix.os }}', path: 'informe-*.json' }
