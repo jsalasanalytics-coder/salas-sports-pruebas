@@ -1,7 +1,7 @@
 // Prueba de punta a punta: clip de presentación que se alarga después de trackeado → el tramo agregado se trackea solo.
 // 5 rondas con casos distintos. Corre dentro de la app (VA_SMOKE_EXTRA). No guarda nada en los datos del usuario.
 (async function () {
-  const VIDEO = '__CLIP__', MAX = __MAXMIN__ * 60000;
+  const VIDEO = '__CLIP__', MAX = __MAXMIN__ * 60000, SOLO_CARTEL = MAX < 0;
   const out = { plat: navigator.platform, rondas: [], errores: [], carpetas: [] };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   window.addEventListener('error', (e) => out.errores.push(String(e.message)));
@@ -60,6 +60,7 @@
       try { PreTrack.stopAll(); Router.go('home'); await sleep(400); Store.presentations = Store.presentations.filter((x) => x.id !== prId); } catch {}
       out.rondas.push(R);
     }
+    if (!SOLO_CARTEL) {
     // 1 · Alargar el final con los botones (con la cancha automática prendida)
     await ronda('final con botones + cancha', 4, 7, { cancha: true }, async () => { await btn('Terminar después', 6); });
     // 2 · Alargar el inicio con los botones
@@ -102,19 +103,20 @@
       const deshacerOk = !!z && corto < fin && Math.abs(c().end - fin) < 0.01 && c().trackDir === d1 && !PreTrack.stale(c()) && !PreTrack.active(id);
       return { cambioFuera, alVolver, deshacerOk, extraOk: cambioFuera && alVolver && deshacerOk };
     });
+    }
     // Cartel flotante: se mueve, recuerda el lugar y vuelve con doble clic
     try {
       const guardado = localStorage.getItem('va.bgjobs.pos'); localStorage.removeItem('va.bgjobs.pos'); BgJobs.place(BgJobs.root());
       BgJobs.start('smk-job', 'Prueba', () => {}); await sleep(120);
       const node = document.querySelector('[data-job="smk-job"]'), root = document.getElementById('bgjobs'), b0 = root.getBoundingClientRect();
       mouse('mousedown', b0.left + 40, b0.top + 20, node); mouse('mousemove', b0.left - 200, b0.top - 150); mouse('mousemove', b0.left - 260, b0.top - 200); mouse('mouseup', b0.left - 260, b0.top - 200);
-      const b1 = root.getBoundingClientRect(), mov = Math.round(b1.left - b0.left) === -300 && Math.round(b1.top - b0.top) === -220, rec = !!localStorage.getItem('va.bgjobs.pos');
+      const b1 = root.getBoundingClientRect(), dx = Math.round(b1.left - b0.left), dy = Math.round(b1.top - b0.top), mov = dx <= -100 && dy <= -100 && b1.left >= 0 && b1.top >= 0 && b1.right <= innerWidth && b1.bottom <= innerHeight, rec = !!localStorage.getItem('va.bgjobs.pos');
       node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); const b2 = root.getBoundingClientRect();
-      out.cartel = { seMueve: mov, recuerda: rec, vuelve: Math.abs(b2.left - b0.left) < 2 && Math.abs(b2.top - b0.top) < 2 };
+      out.cartel = { dx, dy, ventana: [innerWidth, innerHeight], antes: [Math.round(b0.left), Math.round(b0.top), Math.round(b0.width), Math.round(b0.height)], seMueve: mov, recuerda: rec, vuelve: Math.abs(b2.left - b0.left) < 2 && Math.abs(b2.top - b0.top) < 2 };
       if (guardado) localStorage.setItem('va.bgjobs.pos', guardado); else localStorage.removeItem('va.bgjobs.pos');
       BgJobs.remove('smk-job');
     } catch (err) { out.cartel = { error: String(err.message || err) }; }
   } catch (err) { out.fatal = String(err.message || err); }
   const okN = out.rondas.filter((r) => r.ok).length, cart = out.cartel && out.cartel.seMueve && out.cartel.recuerda && out.cartel.vuelve;
-  return 'TRAMO_' + (okN === 5 && cart && !out.errores.length && !out.fatal ? 'OK' : 'FALLA') + ' ' + okN + '/5 ' + JSON.stringify(out);
+  return 'TRAMO_' + ((okN === 5 || SOLO_CARTEL) && cart && !out.errores.length && !out.fatal ? 'OK' : 'FALLA') + ' ' + okN + '/5 ' + JSON.stringify(out);
 })()

@@ -1,7 +1,10 @@
 name: Tramo agregado (re-tracking)
 # Corre el código real de la app (cifrado) con el motor y el ffmpeg que deja el instalador de verdad, en Windows y Mac
 # limpias: alarga un clip ya trackeado de 5 maneras y comprueba que el tramo agregado se trackea solo.
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      minutos: { description: 'Tope por espera en minutos (-1 = solo el cartel)', default: '20' }
 env: { PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }
 jobs:
   win:
@@ -47,7 +50,7 @@ jobs:
       - name: Las 5 rondas
         shell: bash
         run: |
-          node ci/preparar-tramo.js ci/t-tramo.js clip.mp4 20 "$RUNNER_TEMP/tramo.js"
+          node ci/preparar-tramo.js ci/t-tramo.js clip.mp4 ${{ inputs.minutos }} "$RUNNER_TEMP/tramo.js"
           cd app
           VA_SMOKE=1 VA_ENGINE_TEST=1 VA_SMOKE_EXTRA="$RUNNER_TEMP/tramo.js" npx electron . > "$RUNNER_TEMP/salida.txt" 2>&1 || true
           cd .. && node ci/informe-tramo.js "$RUNNER_TEMP/salida.txt"
@@ -98,7 +101,7 @@ jobs:
           cd app && npm ci --ignore-scripts --no-audit --no-fund > /dev/null && node node_modules/electron/install.js && ls node_modules/electron/dist | head -3
       - name: Las 5 rondas
         run: |
-          node ci/preparar-tramo.js ci/t-tramo.js clip.mp4 20 "$RUNNER_TEMP/tramo.js"
+          node ci/preparar-tramo.js ci/t-tramo.js clip.mp4 ${{ inputs.minutos }} "$RUNNER_TEMP/tramo.js"
           cd app
           VA_SMOKE=1 VA_ENGINE_TEST=1 VA_SMOKE_EXTRA="$RUNNER_TEMP/tramo.js" npx electron . > "$RUNNER_TEMP/salida.txt" 2>&1 || true
           cd .. && node ci/informe-tramo.js "$RUNNER_TEMP/salida.txt"
