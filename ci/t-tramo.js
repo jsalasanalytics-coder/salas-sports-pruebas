@@ -49,12 +49,14 @@
           R.personasInicio = cuenta(c.start + 0.25); R.personasFinal = cuenta(Math.min(c.end, DUR - 0.3) - 0.25);
           if (tid != null) { const d = c.drawings.find((x) => x.id === 'd1'), p1 = d ? TS.posAt(ix1, d.tid, tD + 0.04) : null; R.dibujo = p0 && p1 ? +Math.hypot(p0.x - p1.x, p0.y - p1.y).toFixed(4) : 'perdido'; } else R.dibujo = 'sin persona para enganchar';
         }
+        R.sumado = !!(c.pre && c.pre.added); R.sumadoOk = opts.sumado == null || R.sumado === opts.sumado;
+        { const d = c.drawings.find((x) => x.id === 'd1'); R.mismoNumero = d ? d.tid === tid : null; }
         R.cancha1 = (c.calib || []).length;
         if (R.cancha1) { const cal = await window.va.visionCalibLoad(c.calib[0]); if (cal && cal.t && cal.t.length) R.canchaTramo = [+cal.t[0].toFixed(2), +cal.t[cal.t.length - 1].toFixed(2)]; }
         if (!opts.fueraDeVista) { await sleep(1500); const ix = window.__pp.trackIdx(); R.vistaAlDia = !!(ix && ix.dir === c.trackDir); } else R.vistaAlDia = true;
         Object.assign(R, extra || {});
         const st = await window.va.visionBgState(); R.frenoSuelto = !st.held || st.busy;
-        R.ok = !!(R.inicialOk && !R.faltaba0 && R.terminoOk && R.analisisNuevo && !R.falta && !R.fallo && R.cubre && R.personasInicio > 0 && R.personasFinal > 0 && (typeof R.dibujo !== 'number' || R.dibujo < 0.03) && R.dibujo !== 'perdido' && R.vistaAlDia && R.frenoSuelto && (extra ? extra.extraOk !== false : true) && (!cal0 || R.cancha1 > 0));
+        R.ok = !!(R.inicialOk && !R.faltaba0 && R.terminoOk && R.analisisNuevo && !R.falta && !R.fallo && R.cubre && R.personasInicio > 0 && R.personasFinal > 0 && (typeof R.dibujo !== 'number' || R.dibujo < 0.03) && R.dibujo !== 'perdido' && R.vistaAlDia && R.frenoSuelto && R.sumadoOk && (!R.sumado || R.mismoNumero !== false) && (extra ? extra.extraOk !== false : true) && (!cal0 || R.cancha1 > 0));
       } catch (err) { R.ok = false; R.error = String(err.message || err) + ' @ ' + ((err.stack || '').split('\n')[1] || '').trim(); }
       R.total_s = Math.round((Date.now() - t00) / 1000);
       try { PreTrack.stopAll(); Router.go('home'); await sleep(400); Store.presentations = Store.presentations.filter((x) => x.id !== prId); } catch {}
@@ -62,11 +64,11 @@
     }
     if (!SOLO_CARTEL) {
     // 1 · Alargar el final con los botones (con la cancha automática prendida)
-    await ronda('final con botones + cancha', 4, 7, { cancha: true }, async () => { await btn('Terminar después', 6); });
+    await ronda('final con botones + cancha', 4, 7, { cancha: true, sumado: true }, async () => { await btn('Terminar después', 6); });
     // 2 · Alargar el inicio con los botones
-    await ronda('inicio con botones', 7, 10, {}, async () => { await btn('Empezar antes', 6); });
+    await ronda('inicio con botones', 7, 10, { sumado: true }, async () => { await btn('Empezar antes', 6); });
     // 3 · Arrastrar los dos bordes en la línea de tiempo (el camino real del mouse, con el freno del análisis)
-    await ronda('arrastrando los dos bordes', 5.5, 8, {}, async ({ c }) => {
+    await ronda('arrastrando los dos bordes', 5.5, 8, { sumado: false }, async ({ c }) => {
       const arrastre = async (cual, listo) => {
         const hs = document.querySelectorAll('.segbar .sb-handle'), h = hs[cual === 'R' ? 1 : 0], bar = document.querySelector('.segbar').getBoundingClientRect(), hb = h.getBoundingClientRect();
         const y = hb.top + hb.height / 2, x1 = cual === 'R' ? bar.right - 2 : bar.left + 2;
@@ -81,7 +83,7 @@
       return { frenoAlArrastrar: f1 && f2, extraOk: c().end >= 10.2 && c().start <= 3.3 };
     });
     // 4 · Volver a ajustar mientras se está analizando; y después recortar (no tiene que pedir nada)
-    await ronda('ajustar durante el análisis', 5, 8, {}, async ({ id, c }) => {
+    await ronda('ajustar durante el análisis', 5, 8, { sumado: false }, async ({ id, c }) => {
       await btn('Terminar después', 6);
       const t = Date.now(); while (Date.now() - t < MAX && !(PreTrack.running && PreTrack.running.id === id && (PreTrack.running.pct || 0) > 0.03)) await sleep(300);
       const j0 = PreTrack.running && PreTrack.running.jobId;
@@ -91,7 +93,7 @@
       return { reinicio: !!j0, recortarNoPide: !PreTrack.active(id) && c().trackDir === d1, extraOk: !PreTrack.active(id) && c().trackDir === d1 };
     });
     // 5 · Alargar y salir de la presentación: termina igual de fondo; al volver está todo, y deshacer conserva el análisis
-    await ronda('saliendo de la presentación + deshacer', 5, 8, { fueraDeVista: true }, async ({ id, prId, c }) => {
+    await ronda('saliendo de la presentación + deshacer', 5, 8, { fueraDeVista: true, sumado: true }, async ({ id, prId, c }) => {
       const d0 = c().trackDir; await btn('Terminar después', 6); await sleep(300); Router.go('home');
       await idle(id, MAX);
       const cambioFuera = c().trackDir !== d0, d1 = c().trackDir, fin = c().end;

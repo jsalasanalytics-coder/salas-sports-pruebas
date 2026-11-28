@@ -66,7 +66,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-15, pkg: mac-arm64.enc }
           - { os: macos-26, pkg: mac-arm64.enc }
           - { os: macos-15-intel, pkg: mac-x64.enc }
     runs-on: ${{ matrix.os }}
